@@ -3,13 +3,12 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/pstat.h"
-
+char *newargv[] = {};
 
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
   int i, start, elapsed;
-  char *newargv[16];
   struct rusage ru;
   
   if (argc < 2){
@@ -17,10 +16,10 @@ main(int argc, char *argv[])
         exit(-1);
    }
 
-  for(i=1; i<argc; i++) {
+  for(i=1; i<sizeof(argv); i++) {
   	newargv[i-1] = argv[i];
   }
-  newargv[argc-1] = 0;
+  newargv[sizeof(argv)-1] = 0;
   start = uptime();
   printf("Time: %d\n", start);
   int pid = fork();
