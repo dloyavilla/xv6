@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -119,6 +120,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->cputime = 0; 
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -407,6 +409,62 @@ wait(uint64 addr)
             release(&wait_lock);
             return -1;
           }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+}
+
+//
+int
+wait2(uint64 addr, uint64 rusage)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+  struct rusage ru;
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+    
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+        
+          ru.cputime = np->cputime; 
+          copyout(p->pagetable, rusage, (char *)&ru, sizeof(ru));
+          //copying data from kernel mode to user mode
+         
+          // Found one.
+          pid = np->pid;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+    
           freeproc(np);
           release(&np->lock);
           release(&wait_lock);
