@@ -96,6 +96,24 @@ sys_uptime(void)
   return xticks;
 }
 
+
+// getPriority()
+uint64
+sys_getpriority(void){
+	return myproc()->priority;
+}
+
+// setPriority()
+uint64
+sys_setpriority(void){
+	int priority;
+	if(argint(0, &priority) < 0) {
+		return -1;
+	}
+	myproc()->priority = priority;
+	return 0;
+}
+
 // return the number of active processes in the system
 // fill in user-provided data structure with pid,state,sz,ppid,name
 uint64
@@ -106,4 +124,12 @@ sys_getprocs(void)
   if (argaddr(0, &addr) < 0)
     return -1;
   return(procinfo(addr));
+}
+
+uint64
+sys_wait2(void)
+{
+  uint64 p1, p2;    
+  if(argaddr(0, &p1) < 0 || argaddr(1, &p2)<0){return -1;}      
+  return wait2(p1,p2);
 }

@@ -120,6 +120,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->cputime = 0; 
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -314,6 +315,7 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  np->readytime = sys_uptime();
   release(&np->lock);
 
   return pid;
@@ -428,6 +430,62 @@ wait(uint64 addr)
   }
 }
 
+//
+int
+wait2(uint64 addr, uint64 rusage)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+  struct rusage ru;
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+    
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+        
+          ru.cputime = np->cputime; 
+          copyout(p->pagetable, rusage, (char *)&ru, sizeof(ru));
+          //copying data from kernel mode to user mode
+         
+          // Found one.
+          pid = np->pid;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+    
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -440,27 +498,52 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  struct proc *highProc;
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    if(DREFSCHED == 0){
+	for(p = proc; p < &proc[NPROC]; p++) {
+		acquire(&p->lock);
+		if(p->state == RUNNABLE) {
+		// Switch to chosen process.  It is the process's job
+		// to release its lock and then reacquire it
+		// before jumping back to us.
+		p->state = RUNNING;
+		c->proc = p;
+		swtch(&c->context, &p->context);
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
+		// Process is done running for now.
+		// It should have changed its p->state before coming back.
+		c->proc = 0;
+		}
+		release(&p->lock);
+	}
+    } else {
+    	highProc = proc;
+    	int highestProcess = 0;
+    	for(p = proc; p < &proc[NPROC]; p++) { 
+		int age = sys_uptime() - p->readytime;
+		int priorityCal = p->priority + age;
+		acquire(&p->lock);
+		if(p->state == RUNNABLE) {
+			if(priorityCal > highestProcess) {
+				highestProcess = priorityCal;
+				highProc = p;
+			}
+		}
+		release(&p->lock);
+    	}
+    	acquire(&highProc ->lock);
+    	if(highProc->state == RUNNABLE) {
+    		highProc->state = RUNNING;
+    		c->proc = highProc;
+    		swtch(&c->context, &highProc->context);
+    		c->proc = 0;
+    	}
+    	release(&highProc->lock);
     }
   }
 }
@@ -567,6 +650,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        p->readytime = sys_uptime();
       }
       release(&p->lock);
     }
@@ -630,6 +714,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
+
 void
 procdump(void)
 {
@@ -672,6 +757,9 @@ procinfo(uint64 addr)
     procinfo.pid = p->pid;
     procinfo.state = p->state;
     procinfo.size = p->sz;
+    procinfo.priority = p->priority; 
+    procinfo.readytime = p->readytime; 
+    
     if (p->parent)
       procinfo.ppid = (p->parent)->pid;
     else
