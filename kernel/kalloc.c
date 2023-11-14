@@ -40,15 +40,15 @@ freerange(void *pa_start, void *pa_end)
 }
 
 int 
-freeCount(void){
+freeMemCount(void){
 	struct run *r;
-	int count = 0;
+	int counter = 0;
 	acquire(&kmem.lock);
 	for(r=kmem.freelist; r; r=r->next){
-		count = count + 1;
+		counter = counter + 1;
 	}
 	release(&kmem.lock);
-	return count;
+	return counter;
 }
 
 // Free the page of physical memory pointed at by v,
