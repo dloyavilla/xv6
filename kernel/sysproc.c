@@ -47,9 +47,11 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
-  return addr;
+  if((addr + n) < TRAPFRAME){
+  	myproc()->sz = addr + n;
+  	return addr;
+  }
+  return -1;
 }
 
 uint64
@@ -94,6 +96,13 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_freepmem(void)
+{
+	int freeP = freeCount() * 4096;
+	return freeP;
 }
 
 // return the number of active processes in the system

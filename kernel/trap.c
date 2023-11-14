@@ -67,6 +67,35 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+    } else if(r_scause() == 13 || r_scause() == 15){
+  	//checking if the faulting address (stval register) is valid
+  	if(r_stval() < p->sz){
+  		//printf("usertrap(): aaa\n");
+  		//allocate physical frame memory
+  		void *physical_mem = kalloc();
+
+		//if allocating memory was done correctly
+  		if(physical_mem){
+  			
+  		//maps virtual page to physical memory and inserts to pagetable
+  			if(mappages(p->pagetable, PGROUNDDOWN(r_stval()), PGSIZE, (uint64)physical_mem, (PTE_R | PTE_W | PTE_X | PTE_U)) < 0){ 
+  				kfree(physical_mem);
+  				printf("mappages didn't work\n");
+  				p->killed = 1;
+  				exit(-1);
+  			}
+  			
+  		}else{
+			printf("usertrap(): no more memory\n");
+  			p->killed = 1;
+  			exit(-1);
+  		}
+  		
+  	}else{
+  		printf("usertrap(): invalid memory address\n");
+  		p->killed = 1;
+  		exit(-1);
+  	}
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
