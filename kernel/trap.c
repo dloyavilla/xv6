@@ -67,7 +67,9 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-    } else if(r_scause() == 13 || r_scause() == 15){
+    
+  //Homework 4 (task 3)
+  } else if(r_scause() == 13 || r_scause() == 15){
   	//checking if the faulting address (stval register) is valid
   	if(r_stval() < p->sz){
   		//printf("usertrap(): aaa\n");
@@ -96,6 +98,7 @@ usertrap(void)
   		p->killed = 1;
   		exit(-1);
   	}
+  
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -246,4 +249,7 @@ devintr()
     return 0;
   }
 }
+
+
+
 

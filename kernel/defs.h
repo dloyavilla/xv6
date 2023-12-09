@@ -63,7 +63,7 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
-int            freeMemCount(void);
+int 		freeCount(void);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -106,6 +106,11 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             procinfo(uint64);
+struct mmr_list* get_mmr_list(int);
+int alloc_mmr_listid(void);
+void dealloc_mmr_listid(int);
+void
+mmrlistinit(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -172,12 +177,18 @@ uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+//--------HMW5
+int		mapvpages(pagetable_t, uint64, uint64);
 
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
 int             plic_claim(void);
 void            plic_complete(int);
+
+//private.c -------------HMW5
+//void*   mmap(void *, uint64, int, int, int, int);
+//int 	munmap(void *, uint64);
 
 // virtio_disk.c
 void            virtio_disk_init(void);

@@ -40,7 +40,7 @@ freerange(void *pa_start, void *pa_end)
 }
 
 int 
-freeMemCount(void){
+freeCount(void){
 	struct run *r;
 	int counter = 0;
 	acquire(&kmem.lock);

@@ -101,7 +101,7 @@ sys_uptime(void)
 uint64
 sys_freepmem(void)
 {
-	int freeP = freeMemCount() * 4096;
+	int freeP = freeCount() * 4096;
 	return freeP;
 }
 
