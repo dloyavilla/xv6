@@ -196,4 +196,10 @@ void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
+// number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+//  HW 6
+void		seminit(void);
+int		    semalloc(void);
+void		sedealloc(int);
